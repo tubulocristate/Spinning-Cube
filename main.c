@@ -2,6 +2,8 @@
 #include <math.h>
 #include <SDL2/SDL.h>
 
+#define M_PI 3.14159265358979323846
+
 #define WIDTH 800
 #define HEIGHT 600
 
@@ -17,7 +19,7 @@ typedef struct Point3D {
 } Point3D;
 
 
-Point3D pyramid_points[] = {
+Point3D pyramid[] = {
 	{0, 1, 0},
 	{1, -1, -1},
 	{1, -1, 1},
@@ -61,6 +63,27 @@ int cube_lines[][2] = {
 	{6, 7},
 };
 
+Point3D prism[] = {
+	{-1,0,1}, // 0
+	{0,1,1}, // 1
+	{1,0,1}, // 2
+	{-1,0,-1}, // 3
+	{0,1,-1}, // 4
+	{1,0,-1}, // 5
+};
+int prism_lines[][2] = {
+	{0,1},
+	{0,2},
+	{0,3},
+	{1,2},
+	{1,4},
+	{2,5},
+	{3,4},
+	{3,5},
+	{4,5},
+};
+
+
 int check_for_quit(int quit);
 void bresenham_line(SDL_Renderer *renderer, Point2D point1, Point2D point2); 
 void draw_point(SDL_Renderer *renderer, int x, int y);
@@ -72,8 +95,9 @@ void Xiaolin_Line(SDL_Renderer *renderer, Point2D point1 , Point2D point2);
 Point3D rotate_around_x(Point3D point, float angle);
 Point3D rotate_around_y(Point3D point, float angle);
 Point2D weak_perspective_projection(Point3D point, float distance);
-void draw_figure(SDL_Renderer *renderer, Point3D *points, int lines[][2], int number_of_lines, float scalar);
+void draw_figure(SDL_Renderer *renderer, Point3D *points, int lines[][2], int number_of_lines, float scalar, float distance);
 Point2D scale(Point2D point, float constant);
+Point3D shift(Point3D point, float x_shift, float y_shift, float z_shift);
 
 
 int main(void)
@@ -82,25 +106,49 @@ int main(void)
 	SDL_Renderer *renderer = NULL;
 	SDL_Init(SDL_INIT_VIDEO);
 	SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, 0, &window, &renderer);
-	
 
+
+	for (int i = 0; i < 5; i++){
+		pyramid[i] = shift(pyramid[i], 0, 2, 0); 
+	}
+	for (int i = 0; i < 8; i++){
+		cube[i] = shift(cube[i], 0, -2, 0); 
+	}
+	for (int i = 0; i < 6; i++){
+		prism[i] = shift(prism[i], -2, -3, 0); 
+	}
 	int quit = 0;
-	float angle = 0.005;
-	while (quit != 1){
+	float angle = M_PI * 0.005;
+
+
+	while ( quit != 1 ){
 		quit = check_for_quit(quit);
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-		for (int i = 0; i < 8; i++){
-			cube[i] = rotate_around_y(cube[i], angle);
-			cube[i] = rotate_around_x(cube[i], angle);
+		for (int i = 0; i < 5; i++){
+			pyramid[i] = rotate_around_y(pyramid[i], angle);
+			//pyramid[i] = rotate_around_x(pyramid[i], angle);
+
 		}
-		draw_figure(renderer, cube, cube_lines, 12, 100);
+		for (int i = 0; i < 8; i++){
+			cube[i] = rotate_around_x(cube[i], angle);
+			cube[i] = rotate_around_y(cube[i], angle);
+		}
+		for (int i = 0; i < 6; i++){
+			prism[i] = rotate_around_x(prism[i], angle);
+			//prism[i] = rotate_around_y(prism[i], angle);
+		}
+		draw_figure(renderer, pyramid, pyramid_lines, 8, 70, 5);
+		draw_figure(renderer, cube, cube_lines, 12, 100, 5);
+		draw_figure(renderer, prism, prism_lines, 9, 50, 5); 
 
 		SDL_RenderPresent(renderer);		
 		SDL_GL_SwapWindow(window);
-		SDL_Delay(16);
+
+		SDL_Delay(20);
+
 	}
 	SDL_DestroyWindow(window);
 	SDL_DestroyRenderer(renderer);
@@ -219,18 +267,18 @@ Point3D rotate_around_y(Point3D point, float angle)
 }
 Point2D weak_perspective_projection(Point3D point, float distance)
 {
-	float x = point.x * distance / (point.z + distance);
-	float y = point.y * distance / (point.z + distance);
+	float x = (point.x * distance) / (point.z + distance);
+	float y = (point.y * distance) / (point.z + distance);
 	Point2D projected_point = {x, y};
 	return projected_point;
 }
-void draw_figure(SDL_Renderer *renderer, Point3D *points, int lines[][2], int number_of_lines, float scalar)
+void draw_figure(SDL_Renderer *renderer, Point3D *points, int lines[][2], int number_of_lines, float scalar, float distance)
 {
 	for (int i = 0; i < number_of_lines; i++){
 		int idx1 = lines[i][0];
 		int idx2 = lines[i][1];
-		Point2D point1 = scale(weak_perspective_projection(points[idx1], 2), scalar);
-		Point2D point2 = scale(weak_perspective_projection(points[idx2], 2), scalar);
+		Point2D point1 = scale(weak_perspective_projection(points[idx1], distance), scalar);
+		Point2D point2 = scale(weak_perspective_projection(points[idx2], distance), scalar);
 		Xiaolin_Line(renderer, point1, point2);
 	}
 }
@@ -240,4 +288,12 @@ Point2D scale(Point2D point, float constant)
 	float new_y = point.y * constant;
 	Point2D scaled_point = {new_x, new_y};
 	return scaled_point;
+}
+Point3D shift(Point3D point, float x_shift, float y_shift, float z_shift)
+{
+	float new_x = point.x + x_shift;
+	float new_y = point.y + y_shift;
+	float new_z = point.z + z_shift;
+	Point3D shifted_point = {new_x, new_y, new_z};
+	return shifted_point;
 }
